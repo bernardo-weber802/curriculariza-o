@@ -59,27 +59,50 @@ const um=a=>a[Math.floor(Math.random()*a.length)];
 let som=true;
 function fala(t){if(!som||!('speechSynthesis' in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pt-BR';u.rate=.85;u.pitch=1.2;speechSynthesis.speak(u)}
 
+/* ---------- Áudios do Leo (pasta audios/) ---------- */
+let seq=0,atual=null;
+function parar(){seq++;if(atual){atual.pause();atual=null}if('speechSynthesis' in window)speechSynthesis.cancel()}
+// toca uma lista de arquivos em sequência; se algum faltar, fala o texto com a voz do navegador
+function toca(arqs,texto,aguardaToque){
+  if(!som)return;
+  parar();
+  const meu=seq;let i=0;
+  const prox=()=>{
+    if(meu!==seq||i>=arqs.length)return;
+    const a=new Audio('audios/'+arqs[i++]+'.mp3');
+    atual=a;a.onended=prox;
+    a.play().catch(e=>{
+      if(meu!==seq)return;
+      if(e&&e.name==='NotAllowedError'){ // o navegador exige um toque antes de tocar som
+        if(aguardaToque)document.addEventListener('pointerdown',()=>toca(arqs,texto),{once:true});
+      }else fala(texto);
+    });
+  };
+  prox();
+}
+const ELOGIOS=[['Muito bem!','acerto1'],['Isso mesmo!','acerto2'],['Parabéns!','acerto3'],['Você acertou!','acerto4']];
+
 /* ---------- Conteúdos (4 temas) ---------- */
 const CORES=[['vermelho','#e53935'],['azul','#1e88e5'],['amarelo','#fdd835'],['verde','#43a047'],['laranja','#fb8c00'],['roxo','#8e24aa'],['rosa','#ec407a'],['marrom','#6d4c41']];
-const FRUTAS=[['maçãs','🍎'],['bananas','🍌'],['estrelas','⭐'],['bolas','⚽'],['flores','🌼'],['peixes','🐟']];
-const BICHOS=[['o peixe','🐟','Mar'],['a baleia','🐳','Mar'],['a vaca','🐄','Fazenda'],['o porco','🐖','Fazenda'],['a galinha','🐔','Fazenda'],['o macaco','🐒','Floresta'],['a onça','🐆','Floresta'],['o pinguim','🐧','Gelo'],['o urso polar','🐻‍❄️','Gelo'],['o camelo','🐪','Deserto']];
+const FRUTAS=[['maçãs','🍎','macas'],['bananas','🍌','bananas'],['estrelas','⭐','estrelas'],['bolas','⚽','bolas'],['flores','🌼','flores'],['peixes','🐟','peixes']];
+const BICHOS=[['o peixe','🐟','Mar','peixe'],['a baleia','🐳','Mar','baleia'],['a vaca','🐄','Fazenda','vaca'],['o porco','🐖','Fazenda','porco'],['a galinha','🐔','Fazenda','galinha'],['o macaco','🐒','Floresta','macaco'],['a onça','🐆','Floresta','onca'],['o pinguim','🐧','Gelo','pinguim'],['o urso polar','🐻‍❄️','Gelo','urso'],['o camelo','🐪','Deserto','camelo']];
 const LUGARES={Mar:'🌊',Fazenda:'🚜',Floresta:'🌳',Gelo:'❄️',Deserto:'🏜️'};
 const PALAVRAS=[['B','bola','⚽'],['G','gato','🐱'],['C','casa','🏠'],['D','dado','🎲'],['L','lua','🌙'],['S','sapo','🐸'],['M','mala','🧳'],['P','pato','🦆'],['V','vaca','🐄'],['U','uva','🍇']];
 
 const TEMAS={
  cores:{nome:'Cores',ico:'🎨',cor:'#ff6b57',rodada(){
   const [n,h]=um(CORES);const outras=emb(CORES.filter(c=>c[0]!==n)).slice(0,2);
-  return{fala:`Qual é a cor ${n}?`,cena:'🎨',ops:emb([[n,h],...outras]).map(c=>({html:'',cor:c[1],ok:c[0]===n,rot:c[0]}))}}},
+  return{fala:`Qual é a cor ${n}?`,aud:['cor-'+n],cena:'🎨',ops:emb([[n,h],...outras]).map(c=>({html:'',cor:c[1],ok:c[0]===n,rot:c[0]}))}}},
  conta:{nome:'Contar',ico:'🔢',cor:'#2fb86b',rodada(){
-  const [nm,e]=um(FRUTAS);const q=1+Math.floor(Math.random()*9);
+  const [nm,e,k]=um(FRUTAS);const q=1+Math.floor(Math.random()*9);
   const d=emb([1,2,3,4,5,6,7,8,9].filter(x=>x!==q)).slice(0,2);
-  return{fala:`Quantas ${nm} você vê?`,cena:e.repeat(q),ops:emb([q,...d]).map(x=>({html:x,ok:x===q,rot:String(x)}))}}},
+  return{fala:`Quantas ${nm} você vê?`,aud:['conta-'+k],cena:e.repeat(q),ops:emb([q,...d]).map(x=>({html:x,ok:x===q,rot:String(x)}))}}},
  bichos:{nome:'Animais',ico:'🐒',cor:'#e08a00',rodada(){
-  const [nm,e,l]=um(BICHOS);const outros=emb(Object.keys(LUGARES).filter(x=>x!==l)).slice(0,2);
-  return{fala:`Onde mora ${nm}?`,cena:e,ops:emb([l,...outros]).map(x=>({html:LUGARES[x],ok:x===l,rot:x}))}}},
+  const [nm,e,l,k]=um(BICHOS);const outros=emb(Object.keys(LUGARES).filter(x=>x!==l)).slice(0,2);
+  return{fala:`Onde mora ${nm}?`,aud:['onde-'+k],cena:e,ops:emb([l,...outros]).map(x=>({html:LUGARES[x],ok:x===l,rot:x}))}}},
  letras:{nome:'Letras',ico:'🔤',cor:'#7b4fd6',rodada(){
   const [L,w]=um(PALAVRAS);const outras=emb(PALAVRAS.filter(p=>p[0]!==L)).slice(0,2);
-  return{fala:`Qual figura começa com a letra ${L}?`,cena:`<div class="letra">${L}</div>`,ops:emb([[L,w,PALAVRAS.find(p=>p[0]===L)[2]],...outras]).map(p=>({html:p[2],ok:p[0]===L,rot:p[1],mudo:true}))}}}
+  return{fala:`Qual figura começa com a letra ${L}?`,aud:['letra-'+L.toLowerCase()],cena:`<div class="letra">${L}</div>`,ops:emb([[L,w,PALAVRAS.find(p=>p[0]===L)[2]],...outras]).map(p=>({html:p[2],ok:p[0]===L,rot:p[1],mudo:true}))}}}
 };
 const TOTAL=5;
 let jogo=null;
@@ -89,9 +112,9 @@ function menu(){
   $.innerHTML=`<div class="topo"><div class="mini">🌈 Aventura com o Leo</div><button class="mini" id="som" aria-label="Ligar ou desligar o som">${som?'🔊':'🔇'}</button></div>
   <div class="teca"><div class="mascote" aria-hidden="true">${MASC}</div><div class="balao">Oi! Eu sou o Leo. Vamos brincar? Escolha uma aventura!</div></div>
   <div class="menu">${Object.entries(TEMAS).map(([k,t])=>`<button class="tema" data-t="${k}" style="background:${t.cor}"><span aria-hidden="true">${t.ico}</span>${t.nome}</button>`).join('')}</div>`;
-  $.querySelector('#som').onclick=()=>{som=!som;speechSynthesis&&speechSynthesis.cancel();menu()};
+  $.querySelector('#som').onclick=()=>{som=!som;parar();menu()};
   $.querySelectorAll('.tema').forEach(b=>b.onclick=()=>{jogo={t:b.dataset.t,n:0,pts:0};proxima()});
-  fala('Oi! Eu sou o Leo. Vamos brincar? Escolha uma aventura!');
+  toca(['boas-vindas'],'Oi! Eu sou o Leo. Vamos brincar? Escolha uma aventura!',true);
 }
 
 function proxima(){
@@ -105,10 +128,10 @@ function proxima(){
   <div class="cena">${r.cena}</div>
   <div class="opcoes">${r.ops.map((o,i)=>`<button class="op ${o.cor?'cor':''}" data-i="${i}" ${o.cor?`style="background:${o.cor}" aria-label="${o.rot}"`:`aria-label="${o.rot}"`}>${o.html}${o.cor||o.mudo?'':`<small>${o.rot}</small>`}</button>`).join('')}</div>
   <div class="acao"><button class="btn sec" id="ouvir">🔊 Ouvir de novo</button></div>`;
-  $.querySelector('#voltar').onclick=()=>{speechSynthesis&&speechSynthesis.cancel();menu()};
-  $.querySelector('#ouvir').onclick=()=>fala(r.fala);
+  $.querySelector('#voltar').onclick=()=>{parar();menu()};
+  $.querySelector('#ouvir').onclick=()=>toca(r.aud,r.fala);
   $.querySelectorAll('.op').forEach(b=>b.onclick=()=>escolher(b,r.ops[b.dataset.i]));
-  fala(r.fala);
+  toca(r.aud,r.fala);
 }
 
 function escolher(b,o){
@@ -116,12 +139,14 @@ function escolher(b,o){
   if(o.ok){
     b.classList.add('acertou');if(!jogo.erro)jogo.pts++;
     $.querySelectorAll('.op').forEach(x=>x.disabled=true);
-    $.querySelector('#bal').textContent=(o.mudo?o.rot+'! ':'')+um(['Muito bem!','Isso mesmo!','Parabéns!','Você acertou!']);
-    fala($.querySelector('#bal').textContent);chuva();jogo.n++;
-    setTimeout(proxima,1800);
+    const [elogio,arq]=um(ELOGIOS);
+    const msg=(o.mudo?o.rot+'! ':'')+elogio;
+    $.querySelector('#bal').textContent=msg;
+    toca(o.mudo?['fig-'+o.rot,arq]:[arq],msg);chuva();jogo.n++;
+    setTimeout(proxima,o.mudo?2600:1800);
   }else{
     jogo.erro=true;b.classList.add('errou');
-    const m=(o.mudo?`Essa é a figura ${o.rot}. `:'Quase! ')+'Tente de novo.';$.querySelector('#bal').textContent=m;fala(m);
+    const m=(o.mudo?`Essa é a figura ${o.rot}. `:'Quase! ')+'Tente de novo.';$.querySelector('#bal').textContent=m;toca(o.mudo?['essa-e','fig-'+o.rot,'tente']:['erro'],m);
   }
 }
 
@@ -139,7 +164,7 @@ function fim(){
   const t=jogo.t;
   $.querySelector('#de-novo').onclick=()=>{jogo={t,n:0,pts:0};proxima()};
   $.querySelector('#menu').onclick=menu;
-  chuva();fala(msg);
+  chuva();toca([jogo.pts>=4?'fim-otimo':jogo.pts>=2?'fim-bom':'fim-tentar'],msg);
 }
 menu();
 </script>
